@@ -218,6 +218,18 @@ class UIController {
     }
 
     /**
+     * Update only the lists panel without affecting the active list view
+     */
+    async updateListsPanelOnly() {
+        try {
+            const lists = await this.dbService.getAllLists();
+            this.renderListsPanel(lists);
+        } catch (error) {
+            console.error('Error updating lists panel:', error);
+        }
+    }
+
+    /**
      * Render the lists panel with all todo lists
      * @param {Array} lists - Array of todo list objects
      */
@@ -303,11 +315,14 @@ class UIController {
         
         activeListView.innerHTML = `
             <div class="list-header">
-                <h2 class="list-title" data-type="title">${capitalizedTitle}</h2>
-                <div class="list-actions">
-                    <button class="btn secondary edit-active-list-btn">
-                        <i class="fas fa-edit"></i> Editar
+                <div class="list-title-container">
+                    <h2 class="list-title" data-type="title">${capitalizedTitle}</h2>
+                    <input type="text" class="list-title-edit-input" value="${capitalizedTitle}">
+                    <button class="voice-btn list-title-voice-btn" title="Dictar título">
+                        <i class="fas fa-microphone"></i>
                     </button>
+                </div>
+                <div class="list-actions">
                     <button class="btn danger delete-active-list-btn">
                         <i class="fas fa-trash"></i> Eliminar
                     </button>
@@ -346,17 +361,47 @@ class UIController {
         `;
 
         // Add event listeners
-        activeListView.querySelector('.list-title').addEventListener('click', (e) => {
-            this.showInlineEdit(e.target, 'title');
-        });
-
-        activeListView.querySelector('.edit-active-list-btn').addEventListener('click', () => {
-            this.editList(list.id);
+        const listTitleContainer = activeListView.querySelector('.list-title-container');
+        listTitleContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('list-title')) {
+                this.startListTitleInlineEdit(listTitleContainer);
+            }
         });
 
         activeListView.querySelector('.delete-active-list-btn').addEventListener('click', () => {
             this.deleteList(list.id);
         });
+
+        // Add event listeners for list title editing
+        const listTitleInput = activeListView.querySelector('.list-title-edit-input');
+        listTitleInput.addEventListener('input', (e) => {
+            this.autoSaveListTitleEdit(e.target);
+        });
+
+        listTitleInput.addEventListener('blur', (e) => {
+            setTimeout(() => {
+                if (!this.activeDictationButton || !this.activeDictationButton.closest('.list-title-voice-btn')) {
+                    this.finishListTitleInlineEdit(listTitleContainer);
+                }
+            }, 100);
+        });
+
+        listTitleInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                this.finishListTitleInlineEdit(listTitleContainer);
+            } else if (e.key === 'Escape') {
+                this.cancelListTitleInlineEdit(listTitleContainer);
+            }
+        });
+
+        // Add event listener for list title voice button
+        const listTitleVoiceBtn = activeListView.querySelector('.list-title-voice-btn');
+        if (listTitleVoiceBtn) {
+            listTitleVoiceBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.startDictation(listTitleVoiceBtn, listTitleInput);
+            });
+        }
 
         // Add event listeners for checkboxes
         activeListView.querySelectorAll('.task-checkbox').forEach(checkbox => {
@@ -1185,5 +1230,121 @@ class UIController {
         }
         
         this.finishInlineEdit(taskItem);
+    }
+
+    /**
+     * Start inline editing for list title
+     * @param {HTMLElement} titleContainer - The title container element
+     */
+    startListTitleInlineEdit(titleContainer) {
+        if (!titleContainer || !this.currentList) return;
+        
+        // If already editing, return
+        if (titleContainer.classList.contains('editing')) return;
+        
+        // Mark as editing
+        titleContainer.classList.add('editing');
+        this.editingElement = titleContainer;
+        
+        // Get input and focus
+        const input = titleContainer.querySelector('.list-title-edit-input');
+        if (input) {
+            input.dataset.originalValue = input.value;
+            input.focus();
+            input.select();
+        }
+    }
+
+    /**
+     * Finish inline editing for list title
+     * @param {HTMLElement} titleContainer - The title container element
+     */
+    finishListTitleInlineEdit(titleContainer) {
+        if (!titleContainer || !this.currentList || titleContainer !== this.editingElement) return;
+        
+        const input = titleContainer.querySelector('.list-title-edit-input');
+        const titleElement = titleContainer.querySelector('.list-title');
+        
+        if (input && titleElement) {
+            const text = input.value.trim();
+            
+            if (text) {
+                // Update the title element with the new text
+                const capitalizedText = this.utils.capitalizeFirstLetter(text);
+                titleElement.textContent = capitalizedText;
+                input.value = capitalizedText;
+            } else {
+                // If empty, restore original value
+                const originalText = this.currentList.title;
+                input.value = originalText;
+                titleElement.textContent = originalText;
+            }
+        }
+        
+        // Remove editing state
+        titleContainer.classList.remove('editing');
+        this.editingElement = null;
+        
+        // Update lists panel to show changes
+        this.updateListsPanelOnly();
+        
+        // Stop dictation if active
+        if (this.activeDictationButton) {
+            this.activeDictationButton.classList.remove('active');
+            this.speechService.stopListening();
+            this.activeDictationButton = null;
+        }
+    }
+
+    /**
+     * Auto-save list title edit changes
+     * @param {HTMLInputElement} input - The input element being edited
+     */
+    async autoSaveListTitleEdit(input) {
+        if (!this.currentList || !input) return;
+        
+        const text = input.value.trim();
+        
+        if (text && text !== this.currentList.title) {
+            try {
+                const capitalizedText = this.utils.capitalizeFirstLetter(text);
+                this.currentList.title = capitalizedText;
+                
+                // Update the visible title
+                const titleElement = input.parentElement.querySelector('.list-title');
+                if (titleElement) {
+                    titleElement.textContent = capitalizedText;
+                }
+                
+                // Save to database
+                await this.dbService.saveList(this.currentList);
+                
+                // Update lists panel without re-rendering the current view
+                // Only update the sidebar panel, not the active list view
+                this.updateListsPanelOnly();
+                
+            } catch (error) {
+                console.error('Error al auto-guardar el título:', error);
+            }
+        }
+    }
+
+    /**
+     * Cancel list title inline edit and restore original value
+     * @param {HTMLElement} titleContainer - The title container element
+     */
+    cancelListTitleInlineEdit(titleContainer) {
+        if (!titleContainer || titleContainer !== this.editingElement) return;
+        
+        const input = titleContainer.querySelector('.list-title-edit-input');
+        if (input && input.dataset.originalValue) {
+            input.value = input.dataset.originalValue;
+            const titleElement = titleContainer.querySelector('.list-title');
+            if (titleElement) {
+                titleElement.textContent = input.dataset.originalValue;
+            }
+        }
+        
+        this.finishListTitleInlineEdit(titleContainer);
     }
 }

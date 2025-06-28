@@ -9,36 +9,51 @@
 </head>
 <body>
     <div class="app-container">
-        <header>
-            <h1>SoloDilo</h1>
-            <p>Crea y gestiona tus listas de tareas</p>
-        </header>
-
-        <main>
-            <div class="lists-container">
-                <div class="lists-header">
-                    <h2>Mis Listas</h2>
-                    <button id="createListBtn" class="btn primary">
-                        <i class="fas fa-plus"></i> Nueva Lista
+        <div id="drawer" class="drawer">
+            <div class="drawer-header">
+                <h2>Mis Listas</h2>
+                <button id="closeDrawer" class="icon-btn drawer-close-btn">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+            <div id="listsPanel" class="lists-panel">
+                <!-- Las listas se mostrarán aquí -->
+            </div>
+            <div class="drawer-footer">
+                <button id="createListBtn" class="btn primary full-width">
+                    <i class="fas fa-plus"></i> Nueva Lista
+                </button>
+            </div>
+        </div>
+        
+        <div class="overlay" id="drawerOverlay"></div>
+        
+        <div class="main-content">
+            <header>
+                <h1>SoloDilo</h1>
+                <div class="header-actions">
+                    <button id="addListBtn" class="icon-btn">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <button id="openDrawer" class="menu-btn">
+                        <i class="fas fa-bars"></i>
                     </button>
                 </div>
-                <div id="listsPanel" class="lists-panel">
-                    <!-- Las listas se mostrarán aquí -->
-                </div>
-            </div>
+            </header>
 
-            <div class="active-list-container">
-                <div id="activeListView" class="active-list-view">
-                    <!-- Aquí se mostrará la lista activa -->
-                    <div class="empty-state">
-                        <i class="fas fa-clipboard-list fa-4x"></i>
-                        <p>Selecciona una lista o crea una nueva para comenzar</p>
+            <main>
+                <div class="active-list-container">
+                    <div id="activeListView" class="active-list-view">
+                        <!-- Aquí se mostrará la lista activa -->
+                        <div class="empty-state">
+                            <i class="fas fa-clipboard-list fa-4x"></i>
+                            <p>Selecciona una lista o crea una nueva para comenzar</p>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </main>
+            </main>
 
-        <!-- Modal para crear/editar lista -->
+        <!-- Modal para crear nueva lista -->
         <div id="listModal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -78,6 +93,20 @@
                     <button id="saveListBtn" class="btn primary">Guardar</button>
                     <button id="cancelBtn" class="btn">Cancelar</button>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Popup para editar texto inline -->
+        <div id="editTextPopup" class="edit-text-popup">
+            <div class="input-with-voice">
+                <input type="text" id="editTextInput" placeholder="Texto">
+                <button id="dictateEditText" class="voice-btn" title="Dictar texto">
+                    <i class="fas fa-microphone"></i>
+                </button>
+            </div>
+            <div class="popup-actions">
+                <button id="saveEditTextBtn" class="btn primary small">Guardar</button>
+                <button id="cancelEditTextBtn" class="btn small">Cancelar</button>
             </div>
         </div>
 

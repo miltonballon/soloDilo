@@ -10,10 +10,16 @@ class UIController {
         this.activeListId = null;
         this.currentList = null;
         this.isEditing = false;
+        this.editingElement = null;
 
         // DOM Elements
         this.elements = {
+            drawer: document.getElementById('drawer'),
+            openDrawer: document.getElementById('openDrawer'),
+            closeDrawer: document.getElementById('closeDrawer'),
+            drawerOverlay: document.getElementById('drawerOverlay'),
             createListBtn: document.getElementById('createListBtn'),
+            addListBtn: document.getElementById('addListBtn'),
             listsPanel: document.getElementById('listsPanel'),
             activeListView: document.getElementById('activeListView'),
             listModal: document.getElementById('listModal'),
@@ -25,6 +31,11 @@ class UIController {
             addTaskBtn: document.getElementById('addTaskBtn'),
             saveListBtn: document.getElementById('saveListBtn'),
             cancelBtn: document.getElementById('cancelBtn'),
+            editTextPopup: document.getElementById('editTextPopup'),
+            editTextInput: document.getElementById('editTextInput'),
+            dictateEditText: document.getElementById('dictateEditText'),
+            saveEditTextBtn: document.getElementById('saveEditTextBtn'),
+            cancelEditTextBtn: document.getElementById('cancelEditTextBtn'),
             toast: document.getElementById('toast'),
             toastMessage: document.getElementById('toastMessage')
         };
@@ -53,8 +64,17 @@ class UIController {
      * Bind event listeners to UI elements
      */
     bindEvents() {
+        // Drawer controls
+        this.elements.openDrawer.addEventListener('click', () => this.openDrawer());
+        this.elements.closeDrawer.addEventListener('click', () => this.closeDrawer());
+        this.elements.drawerOverlay.addEventListener('click', () => this.closeDrawer());
+
         // List creation and editing
-        this.elements.createListBtn.addEventListener('click', () => this.openCreateListModal());
+        this.elements.createListBtn.addEventListener('click', () => {
+            this.openCreateListModal();
+            this.closeDrawer();
+        });
+        this.elements.addListBtn.addEventListener('click', () => this.openCreateListModal());
         this.elements.closeModal.addEventListener('click', () => this.closeModal());
         this.elements.cancelBtn.addEventListener('click', () => this.closeModal());
         this.elements.saveListBtn.addEventListener('click', () => this.saveList());
@@ -82,6 +102,34 @@ class UIController {
                     row.remove();
                 } else {
                     row.querySelector('input').value = '';
+                }
+            }
+        });
+
+        // Inline edit popup controls
+        this.elements.dictateEditText.addEventListener('click', (e) => 
+            this.startDictation(e.target, this.elements.editTextInput)
+        );
+        this.elements.saveEditTextBtn.addEventListener('click', () => this.saveInlineEdit());
+        this.elements.cancelEditTextBtn.addEventListener('click', () => this.closeInlineEdit());
+        
+        // Close inline edit when clicking outside
+        document.addEventListener('click', (e) => {
+            if (this.elements.editTextPopup.classList.contains('show') && 
+                !this.elements.editTextPopup.contains(e.target) && 
+                !this.editingElement) {
+                this.closeInlineEdit();
+            }
+        });
+
+        // Listen for escape key to close popups
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (this.elements.editTextPopup.classList.contains('show')) {
+                    this.closeInlineEdit();
+                }
+                if (this.elements.listModal.classList.contains('show')) {
+                    this.closeModal();
                 }
             }
         });
@@ -132,29 +180,15 @@ class UIController {
 
             listItem.innerHTML = `
                 <div class="list-title">${list.title}</div>
-                <div class="list-options">
-                    <button class="edit-list-btn" title="Editar lista">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="delete-list-btn" title="Eliminar lista">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
             `;
 
-            // Add event listeners
-            listItem.querySelector('.list-title').addEventListener('click', () => {
+            // Add event listener to load the list when clicked
+            listItem.addEventListener('click', () => {
                 this.loadActiveList(list.id);
-            });
-
-            listItem.querySelector('.edit-list-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.editList(list.id);
-            });
-
-            listItem.querySelector('.delete-list-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.deleteList(list.id);
+                // Close drawer with a slight delay to improve animation visibility
+                setTimeout(() => {
+                    this.closeDrawer();
+                }, 50);
             });
 
             listsPanel.appendChild(listItem);
@@ -200,8 +234,8 @@ class UIController {
         
         activeListView.innerHTML = `
             <div class="list-header">
-                <h2>${list.title}</h2>
-                <div>
+                <h2 class="list-title" data-type="title">${list.title}</h2>
+                <div class="list-actions">
                     <button class="btn secondary edit-active-list-btn">
                         <i class="fas fa-edit"></i> Editar
                     </button>
@@ -215,7 +249,7 @@ class UIController {
                 ${list.tasks.map((task, index) => `
                     <li class="task-item ${task.completed ? 'completed' : ''}">
                         <input type="checkbox" class="task-checkbox" data-index="${index}" ${task.completed ? 'checked' : ''}>
-                        <span class="task-text">${task.text}</span>
+                        <span class="task-text" data-type="task" data-index="${index}">${task.text}</span>
                         <div class="task-actions">
                             <button class="delete-task-btn" data-index="${index}">
                                 <i class="fas fa-trash"></i>
@@ -224,9 +258,16 @@ class UIController {
                     </li>
                 `).join('')}
             </ul>
+            <button class="add-task-btn" id="addNewTaskBtn">
+                <i class="fas fa-plus"></i> Añadir nueva tarea
+            </button>
         `;
 
         // Add event listeners
+        activeListView.querySelector('.list-title').addEventListener('click', (e) => {
+            this.showInlineEdit(e.target, 'title');
+        });
+
         activeListView.querySelector('.edit-active-list-btn').addEventListener('click', () => {
             this.editList(list.id);
         });
@@ -242,11 +283,157 @@ class UIController {
             });
         });
 
+        activeListView.querySelectorAll('.task-text').forEach(taskText => {
+            taskText.addEventListener('click', (e) => {
+                const index = parseInt(e.target.dataset.index, 10);
+                this.showInlineEdit(e.target, 'task', index);
+            });
+        });
+
         activeListView.querySelectorAll('.delete-task-btn').forEach(button => {
             button.addEventListener('click', () => {
                 this.deleteTask(parseInt(button.dataset.index, 10));
             });
         });
+
+        // Add new task button
+        activeListView.querySelector('#addNewTaskBtn').addEventListener('click', () => {
+            this.addNewTask();
+        });
+    }
+
+    /**
+     * Add a new task to the current list directly from the main view
+     */
+    async addNewTask() {
+        if (!this.currentList) return;
+        
+        this.showInlineEdit(null, 'new-task');
+    }
+
+    /**
+     * Show inline edit popup for text editing
+     * @param {HTMLElement} element - The element being edited
+     * @param {string} type - The type of element being edited ('title', 'task', 'new-task')
+     * @param {number} index - The index of the task (for task editing)
+     */
+    showInlineEdit(element, type, index = null) {
+        const popup = this.elements.editTextPopup;
+        const input = this.elements.editTextInput;
+        
+        // Store reference to the element being edited and its type
+        this.editingElement = element;
+        this.editingType = type;
+        this.editingIndex = index;
+        
+        // Set input value based on type
+        if (type === 'title') {
+            input.value = this.currentList.title;
+            input.placeholder = 'Título de la lista';
+        } else if (type === 'task') {
+            input.value = this.currentList.tasks[index].text;
+            input.placeholder = 'Texto de la tarea';
+        } else if (type === 'new-task') {
+            input.value = '';
+            input.placeholder = 'Nueva tarea';
+        }
+        
+        // Position the popup
+        if (element) {
+            const rect = element.getBoundingClientRect();
+            popup.style.top = `${rect.bottom + window.scrollY + 5}px`;
+            popup.style.left = `${rect.left + window.scrollX}px`;
+        } else {
+            // For new task, position at the bottom of the task list
+            const addTaskBtn = document.getElementById('addNewTaskBtn');
+            const rect = addTaskBtn.getBoundingClientRect();
+            popup.style.top = `${rect.top + window.scrollY - 5}px`;
+            popup.style.left = `${rect.left + window.scrollX}px`;
+        }
+        
+        // Show popup and focus input
+        popup.classList.add('show');
+        input.focus();
+        
+        // Select all text
+        input.select();
+    }
+
+    /**
+     * Save the inline edit
+     */
+    async saveInlineEdit() {
+        const text = this.elements.editTextInput.value.trim();
+        
+        if (!text) {
+            this.showToast('El texto no puede estar vacío', 'error');
+            return;
+        }
+        
+        if (!this.currentList) {
+            this.closeInlineEdit();
+            return;
+        }
+        
+        try {
+            if (this.editingType === 'title') {
+                this.currentList.title = text;
+                this.editingElement.textContent = text;
+            } else if (this.editingType === 'task') {
+                this.currentList.tasks[this.editingIndex].text = text;
+                this.editingElement.textContent = text;
+            } else if (this.editingType === 'new-task') {
+                this.currentList.tasks.push({ text, completed: false });
+                // Re-render the list to show the new task
+                this.renderActiveList(this.currentList);
+            }
+            
+            // Save to database
+            await this.dbService.saveList(this.currentList);
+            
+            // Update lists panel to reflect any changes
+            this.loadLists();
+            
+            this.closeInlineEdit();
+        } catch (error) {
+            console.error('Error saving edit:', error);
+            this.showToast('Error al guardar los cambios', 'error');
+        }
+    }
+
+    /**
+     * Close the inline edit popup
+     */
+    closeInlineEdit() {
+        this.elements.editTextPopup.classList.remove('show');
+        this.editingElement = null;
+        this.editingType = null;
+        this.editingIndex = null;
+        
+        // Stop dictation if active
+        if (this.activeDictationButton && this.activeDictationButton === this.elements.dictateEditText) {
+            this.activeDictationButton.classList.remove('active');
+            this.speechService.stopListening();
+            this.activeDictationButton = null;
+        }
+    }
+
+    /**
+     * Open the drawer
+     */
+    openDrawer() {
+        this.elements.drawer.classList.add('open');
+        this.elements.drawerOverlay.classList.add('active');
+        document.body.style.overflow = 'hidden'; // Prevent scrolling when drawer is open
+    }
+
+    /**
+     * Close the drawer
+     */
+    closeDrawer() {
+        this.elements.drawer.classList.remove('open');
+        this.elements.drawerOverlay.classList.remove('active');
+        document.body.style.overflow = ''; // Restore scrolling
     }
 
     /**

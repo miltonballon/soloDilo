@@ -30,8 +30,6 @@ class UIController {
             closeModal: document.getElementById('closeModal'),
             listTitle: document.getElementById('listTitle'),
             dictateTitle: document.getElementById('dictateTitle'),
-            taskInputContainer: document.getElementById('taskInputContainer'),
-            addTaskBtn: document.getElementById('addTaskBtn'),
             saveListBtn: document.getElementById('saveListBtn'),
             cancelBtn: document.getElementById('cancelBtn'),
             editTextPopup: document.getElementById('editTextPopup'),
@@ -146,7 +144,6 @@ class UIController {
         this.elements.closeModal.addEventListener('click', () => this.closeModal());
         this.elements.cancelBtn.addEventListener('click', () => this.closeModal());
         this.elements.saveListBtn.addEventListener('click', () => this.saveList());
-        this.elements.addTaskBtn.addEventListener('click', () => this.addTaskInput());
 
         // Voice dictation
         this.elements.dictateTitle.addEventListener('click', (e) => this.startDictation(e.target, this.elements.listTitle));
@@ -628,24 +625,11 @@ class UIController {
         this.elements.modalTitle.textContent = 'Nueva Lista';
         this.elements.listTitle.value = '';
         
-        // Clear task inputs and leave one empty input
-        this.elements.taskInputContainer.innerHTML = `
-            <div class="input-with-voice">
-                <input type="text" class="task-input" placeholder="Nueva tarea">
-                <button class="voice-btn dictate-task" title="Dictar tarea">
-                    <i class="fas fa-microphone"></i>
-                </button>
-                <button class="remove-task-btn" title="Eliminar tarea">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `;
-        
         this.showModal();
     }
 
     /**
-     * Open the edit list modal
+     * Open the edit list modal - simplified to only edit title
      * @param {number} id - The ID of the list to edit
      */
     async editList(id) {
@@ -661,30 +645,6 @@ class UIController {
             this.elements.modalTitle.textContent = 'Editar Lista';
             // Usar el título ya capitalizado que tiene la lista
             this.elements.listTitle.value = list.title;
-            
-            // Populate task inputs
-            this.elements.taskInputContainer.innerHTML = '';
-            
-            if (list.tasks.length === 0) {
-                // Add an empty task input if there are no tasks
-                this.addTaskInput();
-            } else {
-                list.tasks.forEach(task => {
-                    // Usar el texto de la tarea ya capitalizado
-                    const taskInput = document.createElement('div');
-                    taskInput.className = 'input-with-voice';
-                    taskInput.innerHTML = `
-                        <input type="text" class="task-input" placeholder="Nueva tarea" value="${task.text}">
-                        <button class="voice-btn dictate-task" title="Dictar tarea">
-                            <i class="fas fa-microphone"></i>
-                        </button>
-                        <button class="remove-task-btn" title="Eliminar tarea">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    `;
-                    this.elements.taskInputContainer.appendChild(taskInput);
-                });
-            }
             
             this.showModal();
         } catch (error) {
@@ -706,43 +666,26 @@ class UIController {
         // Capitalizar el título
         const capitalizedTitle = this.utils.capitalizeFirstLetter(title);
 
-        const taskInputs = Array.from(this.elements.taskInputContainer.querySelectorAll('.task-input'));
-        const tasks = taskInputs
-            .map(input => input.value.trim())
-            .filter(text => text !== '')
-            // Capitalizar cada tarea
-            .map(text => ({ text: this.utils.capitalizeFirstLetter(text), completed: false }));
-
-        if (tasks.length === 0) {
-            this.showToast('La lista debe tener al menos una tarea', 'error');
-            return;
-        }
-
         try {
             let list = {
                 title: capitalizedTitle,
-                tasks
+                tasks: [] // Crear lista vacía
             };
 
             if (this.isEditing && this.currentList) {
                 list.id = this.currentList.id;
-                
-                // Preserve completed status for existing tasks
-                if (this.currentList.tasks) {
-                    for (let i = 0; i < list.tasks.length && i < this.currentList.tasks.length; i++) {
-                        if (list.tasks[i].text === this.currentList.tasks[i].text) {
-                            list.tasks[i].completed = this.currentList.tasks[i].completed;
-                        }
-                    }
-                }
+                // Si estamos editando, mantener las tareas existentes
+                list.tasks = this.currentList.tasks || [];
             }
 
             const id = await this.dbService.saveList(list);
             
             if (!this.isEditing) {
-                // If creating a new list, set it as active
+                // Si es una nueva lista, abrirla automáticamente
                 this.activeListId = id;
                 this.dbService.setActiveList(id);
+                // Cargar y mostrar la nueva lista
+                await this.loadActiveList(id);
             }
             
             this.showToast(this.isEditing ? 'Lista actualizada correctamente' : 'Lista creada correctamente', 'success');
@@ -824,28 +767,6 @@ class UIController {
             console.error('Error deleting task:', error);
             this.showToast('Error al eliminar la tarea', 'error');
         }
-    }
-
-    /**
-     * Add a new task input field to the modal
-     */
-    addTaskInput() {
-        const taskInput = document.createElement('div');
-        taskInput.className = 'input-with-voice';
-        taskInput.innerHTML = `
-            <input type="text" class="task-input" placeholder="Nueva tarea">
-            <button class="voice-btn dictate-task" title="Dictar tarea">
-                <i class="fas fa-microphone"></i>
-            </button>
-            <button class="remove-task-btn" title="Eliminar tarea">
-                <i class="fas fa-times"></i>
-            </button>
-        `;
-        this.elements.taskInputContainer.appendChild(taskInput);
-        
-        // Focus the new input
-        const newInput = taskInput.querySelector('input');
-        newInput.focus();
     }
 
     /**

@@ -94,6 +94,10 @@ class SpeechService {
             // Final result
             this.targetElement.value = transcript;
             
+            // Dispatch input event to trigger auto-save
+            const inputEvent = new Event('input', { bubbles: true });
+            this.targetElement.dispatchEvent(inputEvent);
+            
             // Execute callback if provided
             if (this.callback && typeof this.callback === 'function') {
                 this.callback(transcript);
@@ -125,9 +129,15 @@ class SpeechService {
         this.isListening = false;
         console.log('Speech recognition ended');
         
+        // Dispatch input event to ensure auto-save is triggered
+        if (this.targetElement) {
+            const inputEvent = new Event('input', { bubbles: true });
+            this.targetElement.dispatchEvent(inputEvent);
+        }
+        
         // Notify UI that recognition has stopped
         if (this.callback && typeof this.callback === 'function') {
-            this.callback(this.targetElement.value);
+            this.callback(this.targetElement ? this.targetElement.value : '');
         }
     }
 

@@ -151,6 +151,23 @@ class UIController {
         // Voice dictation
         this.elements.dictateTitle.addEventListener('click', (e) => this.startDictation(e.target, this.elements.listTitle));
         
+        // Edit text popup events
+        this.elements.dictateEditText.addEventListener('click', (e) => {
+            this.startDictation(e.target, this.elements.editTextInput);
+        });
+        
+        this.elements.saveEditTextBtn.addEventListener('click', () => this.saveInlineEdit());
+        this.elements.cancelEditTextBtn.addEventListener('click', () => this.closeInlineEdit());
+        
+        // Handle Enter and Escape keys in edit text popup
+        this.elements.editTextInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                this.saveInlineEdit();
+            } else if (e.key === 'Escape') {
+                this.closeInlineEdit();
+            }
+        });
+        
         // Close modal when clicking outside
         window.addEventListener('click', (e) => {
             if (e.target === this.elements.listModal) {

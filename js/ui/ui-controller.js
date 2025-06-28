@@ -157,45 +157,26 @@ class UIController {
                 this.closeModal();
             }
         });
-
-        // Bind event delegation for task input voice buttons
-        this.elements.taskInputContainer.addEventListener('click', (e) => {
-            if (e.target.closest('.dictate-task')) {
-                const button = e.target.closest('.dictate-task');
-                const input = button.closest('.input-with-voice').querySelector('input');
-                this.startDictation(button, input);
-            } else if (e.target.closest('.remove-task-btn')) {
-                const row = e.target.closest('.input-with-voice');
-                if (this.elements.taskInputContainer.children.length > 1) {
-                    row.remove();
-                } else {
-                    row.querySelector('input').value = '';
-                }
-            }
-        });
-
-        // Inline edit popup controls
-        this.elements.dictateEditText.addEventListener('click', (e) => 
-            this.startDictation(e.target, this.elements.editTextInput)
-        );
-        this.elements.saveEditTextBtn.addEventListener('click', () => this.saveInlineEdit());
-        this.elements.cancelEditTextBtn.addEventListener('click', () => this.closeInlineEdit());
         
-        // Close inline edit when clicking outside
+        // Listener global para los botones de dictado en tareas
         document.addEventListener('click', (e) => {
-            if (this.elements.editTextPopup.classList.contains('show') && 
-                !this.elements.editTextPopup.contains(e.target) && 
-                !this.editingElement) {
-                this.closeInlineEdit();
+            if (e.target.closest('.task-voice-btn')) {
+                const button = e.target.closest('.task-voice-btn');
+                const taskItem = button.closest('.task-item');
+                const input = taskItem.querySelector('.task-edit-input');
+                
+                // Si no está en modo edición, activarlo primero
+                if (!taskItem.classList.contains('editing')) {
+                    this.startInlineEdit(taskItem);
+                }
+                
+                this.startDictation(button, input);
             }
         });
-
+        
         // Listen for escape key to close popups
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                if (this.elements.editTextPopup.classList.contains('show')) {
-                    this.closeInlineEdit();
-                }
                 if (this.elements.listModal.classList.contains('show')) {
                     this.closeModal();
                 }
@@ -318,19 +299,28 @@ class UIController {
                     </button>
                 </div>
             </div>
+            <div class="swipe-hint">
+                <i class="fas fa-arrows-alt-h"></i>
+                Desliza a la derecha para completar y a la izquierda para eliminar
+                <i class="fas fa-hand-pointer ml-auto"></i>
+                Mantén presionado para editar directamente
+            </div>
             <ul class="task-list">
                 ${list.tasks.length === 0 ? '<div class="empty-state"><p>No hay tareas en esta lista</p></div>' : ''}
                 ${list.tasks.map((task, index) => {
                     // Capitalizar cada tarea
                     const capitalizedTask = this.utils.capitalizeFirstLetter(task.text);
                     return `
-                        <li class="task-item ${task.completed ? 'completed' : ''}">
+                        <li class="task-item ${task.completed ? 'completed' : ''}" data-index="${index}">
                             <input type="checkbox" class="task-checkbox" data-index="${index}" ${task.completed ? 'checked' : ''}>
-                            <span class="task-text" data-type="task" data-index="${index}">${capitalizedTask}</span>
-                            <div class="task-actions">
-                                <button class="delete-task-btn" data-index="${index}">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+                            <div class="task-content" data-index="${index}">
+                                <div class="task-text-container">
+                                    <span class="task-text" data-type="task" data-index="${index}">${capitalizedTask}</span>
+                                    <input type="text" class="task-edit-input" value="${capitalizedTask}" data-index="${index}">
+                                    <button class="voice-btn task-voice-btn" data-index="${index}" title="Dictar tarea">
+                                        <i class="fas fa-microphone"></i>
+                                    </button>
+                                </div>
                             </div>
                         </li>
                     `;
@@ -354,24 +344,50 @@ class UIController {
             this.deleteList(list.id);
         });
 
-        // Add event listeners for checkboxes and delete buttons
+        // Add event listeners for checkboxes
         activeListView.querySelectorAll('.task-checkbox').forEach(checkbox => {
             checkbox.addEventListener('change', () => {
                 this.toggleTaskComplete(parseInt(checkbox.dataset.index, 10));
             });
         });
 
+        // Add event listeners for task text click to edit
         activeListView.querySelectorAll('.task-text').forEach(taskText => {
             taskText.addEventListener('click', (e) => {
                 const index = parseInt(e.target.dataset.index, 10);
-                this.showInlineEdit(e.target, 'task', index);
+                this.startInlineEdit(e.target.closest('.task-item'));
             });
         });
 
-        activeListView.querySelectorAll('.delete-task-btn').forEach(button => {
-            button.addEventListener('click', () => {
-                this.deleteTask(parseInt(button.dataset.index, 10));
+        // Add event listeners for input change to save automatically
+        activeListView.querySelectorAll('.task-edit-input').forEach(input => {
+            input.addEventListener('input', (e) => {
+                this.autoSaveTaskEdit(e.target);
             });
+            
+            // Handle blur to finish editing
+            input.addEventListener('blur', (e) => {
+                // Pequeño timeout para permitir que el evento click del botón de micrófono se procese primero
+                setTimeout(() => {
+                    if (!this.activeDictationButton || !this.activeDictationButton.closest('.task-voice-btn')) {
+                        this.finishInlineEdit(e.target.closest('.task-item'));
+                    }
+                }, 100);
+            });
+            
+            // Handle enter key to finish editing
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    this.finishInlineEdit(e.target.closest('.task-item'));
+                } else if (e.key === 'Escape') {
+                    this.cancelInlineEdit(e.target.closest('.task-item'));
+                }
+            });
+        });
+
+        // Add swipe gesture functionality for each task item
+        activeListView.querySelectorAll('.task-item').forEach(taskItem => {
+            this.addSwipeGesture(taskItem);
         });
 
         // Add new task button
@@ -386,7 +402,21 @@ class UIController {
     async addNewTask() {
         if (!this.currentList) return;
         
-        this.showInlineEdit(null, 'new-task');
+        // Añadir una tarea vacía a la lista actual
+        this.currentList.tasks.push({ text: "Nueva tarea", completed: false });
+        
+        // Re-renderizar la lista
+        this.renderActiveList(this.currentList);
+        
+        // Guardar en la base de datos
+        await this.dbService.saveList(this.currentList);
+        
+        // Activar edición en la nueva tarea
+        const taskItems = document.querySelectorAll('.task-item');
+        const newTaskItem = taskItems[taskItems.length - 1];
+        if (newTaskItem) {
+            this.startInlineEdit(newTaskItem);
+        }
     }
 
     /**
@@ -479,6 +509,62 @@ class UIController {
         } catch (error) {
             console.error('Error saving edit:', error);
             this.showToast('Error al guardar los cambios', 'error');
+        }
+    }
+
+    /**
+     * Guarda los cambios realizados en la edición inline de una tarea
+     */
+    async saveInlineTaskEdit() {
+        if (!this.editingElement || !this.currentList) return;
+        
+        const editInput = this.editingElement.querySelector('.task-edit-input');
+        const taskText = this.editingElement.querySelector('.task-text');
+        const index = parseInt(this.editingElement.dataset.index, 10);
+        
+        if (!editInput || index === undefined) return;
+        
+        const text = editInput.value.trim();
+        
+        if (text) {
+            try {
+                // Capitalizar el texto
+                const capitalizedText = this.utils.capitalizeFirstLetter(text);
+                
+                // Actualizar el texto en la lista
+                this.currentList.tasks[index].text = capitalizedText;
+                
+                // Actualizar el texto visible
+                taskText.textContent = capitalizedText;
+                
+                // Guardar en la base de datos
+                await this.dbService.saveList(this.currentList);
+                
+                // Actualizar el panel de listas
+                this.loadLists();
+                
+            } catch (error) {
+                console.error('Error al guardar la tarea editada:', error);
+                this.showToast('Error al guardar los cambios', 'error');
+            }
+        } else {
+            // Si el texto está vacío, restaurar el texto anterior
+            editInput.value = this.currentList.tasks[index].text;
+            this.showToast('El texto de la tarea no puede estar vacío', 'error');
+        }
+        
+        // Quitar la clase de edición y restaurar la visualización
+        this.editingElement.classList.remove('editing', 'long-press');
+        taskText.style.display = '';
+        this.editingElement.querySelector('.task-edit-container').style.display = 'none';
+        this.editingElement = null;
+        this.editingIndex = null;
+        
+        // Detener la dictación si está activa
+        if (this.activeDictationButton && this.activeDictationButton.closest('.task-voice-btn')) {
+            this.activeDictationButton.classList.remove('active');
+            this.speechService.stopListening();
+            this.activeDictationButton = null;
         }
     }
 
@@ -760,6 +846,12 @@ class UIController {
         // Find the actual button element if it's an icon
         const buttonElement = button.tagName === 'BUTTON' ? button : button.closest('button');
         
+        // Asegurar que el input está disponible
+        if (!input || !buttonElement) {
+            console.error('Input o botón no disponible para dictado');
+            return;
+        }
+        
         // Start listening
         buttonElement.classList.add('active');
         this.activeDictationButton = buttonElement;
@@ -816,5 +908,290 @@ class UIController {
         setTimeout(() => {
             toast.classList.remove('show');
         }, 3000);
+    }
+
+    /**
+     * Añade funcionalidad de deslizamiento (swipe) a un elemento de tarea
+     * @param {HTMLElement} element - El elemento al que añadir el gesto de deslizamiento
+     */
+    addSwipeGesture(element) {
+        let startX, moveX, offsetX = 0;
+        let longPressTimer = null; // Timer para detectar pulsación larga
+        let hasMoved = false; // Indica si ha habido movimiento durante el toque
+        const threshold = 70; // Umbral para considerar un deslizamiento completo
+        const longPressDelay = 1500; // Tiempo en ms para considerar pulsación larga (1.5 segundos)
+        
+        const handleTouchStart = (e) => {
+            startX = e.touches[0].clientX;
+            element.classList.add('swiping');
+            element.classList.remove('slide-left', 'slide-right');
+            hasMoved = false;
+            
+            // Iniciar el timer para detectar pulsación larga
+            longPressTimer = setTimeout(() => {
+                // Solo activar la edición inline si no ha habido movimiento
+                if (!hasMoved) {
+                    element.classList.add('long-press');
+                    this.startInlineEdit(element);
+                }
+            }, longPressDelay);
+        };
+        
+        const handleTouchMove = (e) => {
+            if (!startX) return;
+            
+            // Marcar que ha habido movimiento
+            hasMoved = true;
+            
+            // Cancelar el timer de pulsación larga si hay movimiento
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            
+            moveX = e.touches[0].clientX;
+            offsetX = moveX - startX;
+            
+            // Limitar el deslizamiento
+            if (Math.abs(offsetX) > threshold) {
+                offsetX = offsetX > 0 ? threshold : -threshold;
+            }
+            
+            element.style.transform = `translateX(${offsetX}px)`;
+            
+            // Feedback visual mientras desliza
+            if (offsetX > 20) {
+                element.classList.add('slide-right');
+                element.classList.remove('slide-left');
+            } else if (offsetX < -20) {
+                element.classList.add('slide-left');
+                element.classList.remove('slide-right');
+            } else {
+                element.classList.remove('slide-left', 'slide-right');
+            }
+            
+            // Prevenir scroll mientras se desliza
+            if (Math.abs(offsetX) > 10) {
+                e.preventDefault();
+            }
+        };
+        
+        const handleTouchEnd = () => {
+            element.classList.remove('swiping');
+            element.style.transform = '';
+            
+            // Cancelar el timer de pulsación larga
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            
+            if (!startX || !moveX) return;
+            
+            const index = parseInt(element.dataset.index, 10);
+            
+            if (offsetX > threshold / 2) {
+                // Deslizamiento a la derecha - marcar como completada
+                this.toggleTaskComplete(index);
+            } else if (offsetX < -threshold / 2) {
+                // Deslizamiento a la izquierda - eliminar
+                this.deleteTask(index);
+            } else {
+                // Deslizamiento pequeño - restaurar posición
+                element.classList.remove('slide-left', 'slide-right');
+            }
+            
+            // Resetear valores
+            startX = moveX = offsetX = 0;
+        };
+        
+        // Añadir listeners de eventos touch
+        element.addEventListener('touchstart', handleTouchStart, { passive: true });
+        element.addEventListener('touchmove', handleTouchMove, { passive: false });
+        element.addEventListener('touchend', handleTouchEnd);
+        element.addEventListener('touchcancel', handleTouchEnd);
+        
+        // Soporte para ratón (para pruebas en desktop)
+        let isMouseDown = false;
+        let mouseLongPressTimer = null;
+        
+        element.addEventListener('mousedown', (e) => {
+            isMouseDown = true;
+            startX = e.clientX;
+            element.classList.add('swiping');
+            element.classList.remove('slide-left', 'slide-right');
+            hasMoved = false;
+            
+            // Iniciar el timer para detectar pulsación larga con ratón
+            mouseLongPressTimer = setTimeout(() => {
+                // Solo activar la edición inline si no ha habido movimiento
+                if (isMouseDown && !hasMoved) {
+                    element.classList.add('long-press');
+                    this.startInlineEdit(element);
+                }
+            }, longPressDelay);
+            
+            e.preventDefault();
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (!isMouseDown) return;
+            
+            // Marcar que ha habido movimiento
+            hasMoved = true;
+            
+            // Cancelar el timer de pulsación larga si hay movimiento
+            if (mouseLongPressTimer) {
+                clearTimeout(mouseLongPressTimer);
+                mouseLongPressTimer = null;
+            }
+            
+            moveX = e.clientX;
+            offsetX = moveX - startX;
+            
+            // Limitar el deslizamiento
+            if (Math.abs(offsetX) > threshold) {
+                offsetX = offsetX > 0 ? threshold : -threshold;
+            }
+            
+            element.style.transform = `translateX(${offsetX}px)`;
+            
+            // Feedback visual mientras desliza
+            if (offsetX > 20) {
+                element.classList.add('slide-right');
+                element.classList.remove('slide-left');
+            } else if (offsetX < -20) {
+                element.classList.add('slide-left');
+                element.classList.remove('slide-right');
+            } else {
+                element.classList.remove('slide-left', 'slide-right');
+            }
+        });
+        
+        const mouseUpHandler = () => {
+            if (!isMouseDown) return;
+            
+            isMouseDown = false;
+            element.classList.remove('swiping', 'long-press');
+            element.style.transform = '';
+            
+            // Cancelar el timer de pulsación larga
+            if (mouseLongPressTimer) {
+                clearTimeout(mouseLongPressTimer);
+                mouseLongPressTimer = null;
+            }
+            
+            if (!startX || !moveX) return;
+            
+            const index = parseInt(element.dataset.index, 10);
+            
+            if (offsetX > threshold / 2) {
+                // Deslizamiento a la derecha - marcar como completada
+                this.toggleTaskComplete(index);
+            } else if (offsetX < -threshold / 2) {
+                // Deslizamiento a la izquierda - eliminar
+                this.deleteTask(index);
+            } else {
+                // Deslizamiento pequeño - restaurar posición
+                element.classList.remove('slide-left', 'slide-right');
+            }
+            
+            // Resetear valores
+            startX = moveX = offsetX = 0;
+        };
+        
+        document.addEventListener('mouseup', mouseUpHandler);
+        document.addEventListener('mouseleave', mouseUpHandler);
+    }
+    
+    /**
+     * Inicia la edición inline de una tarea
+     * @param {HTMLElement} taskItem - El elemento de tarea a editar
+     */
+    startInlineEdit(taskItem) {
+        if (!taskItem) return;
+        
+        // Si ya hay algún elemento en edición, terminamos primero esa edición
+        if (this.editingElement && this.editingElement !== taskItem) {
+            this.finishInlineEdit(this.editingElement);
+        }
+        
+        // Marcar el elemento como en edición
+        taskItem.classList.add('editing');
+        
+        // Almacenar referencia al elemento en edición
+        this.editingElement = taskItem;
+        this.editingIndex = parseInt(taskItem.dataset.index, 10);
+        
+        // Obtener el input y darle foco
+        const input = taskItem.querySelector('.task-edit-input');
+        if (input) {
+            // Guardar el valor original para poder cancelar
+            input.dataset.originalValue = input.value;
+            
+            // Enfocar y seleccionar todo el texto
+            input.focus();
+            input.select();
+            
+            // Configurar el botón de micrófono para dictado durante la edición
+            const micButton = taskItem.querySelector('.task-voice-btn');
+            if (micButton) {
+                // Limpiar eventos anteriores para evitar duplicación
+                const newMicButton = micButton.cloneNode(true);
+                micButton.parentNode.replaceChild(newMicButton, micButton);
+                
+                // Asegurar que el ícono dentro del botón no interfiera con los clics
+                const micIcon = newMicButton.querySelector('i');
+                if (micIcon) {
+                    micIcon.style.pointerEvents = 'none';
+                }
+                
+                // Añadir evento de dictado directamente
+                newMicButton.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Evitar propagación del evento
+                    this.startDictation(newMicButton, input);
+                });
+            }
+        }
+    }
+    
+    /**
+     * Finaliza la edición inline de una tarea
+     * @param {HTMLElement} taskItem - El elemento de tarea que estaba en edición
+     */
+    finishInlineEdit(taskItem) {
+        if (!taskItem || !this.currentList || taskItem !== this.editingElement) return;
+        
+        const input = taskItem.querySelector('.task-edit-input');
+        const index = this.editingIndex;
+        
+        if (input) {
+            const text = input.value.trim();
+            
+            if (text) {
+                // No hace falta guardar aquí porque ya se guardó en autoSaveTaskEdit
+                // Sólo actualizamos el panel de listas para reflejar cambios
+                this.loadLists();
+            } else {
+                // Si está vacío, restauramos el valor original
+                const originalText = this.currentList.tasks[index].text;
+                input.value = originalText;
+                taskItem.querySelector('.task-text').textContent = originalText;
+            }
+        }
+        
+        // Quitar la clase de edición
+        taskItem.classList.remove('editing', 'long-press');
+        
+        // Limpiar referencias
+        this.editingElement = null;
+        this.editingIndex = null;
+        
+        // Detener la dictación si está activa
+        if (this.activeDictationButton) {
+            this.activeDictationButton.classList.remove('active');
+            this.speechService.stopListening();
+            this.activeDictationButton = null;
+        }
     }
 }

@@ -220,7 +220,6 @@ header h1 {
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%;
 }
 
 main {
@@ -403,7 +402,11 @@ main {
     margin-bottom: 0.5rem;
     background-color: var(--light-gray);
     border-radius: var(--border-radius);
-    transition: background-color 0.2s ease;
+    transition: transform 0.3s ease, background-color 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+    touch-action: pan-y;
 }
 
 .task-item:hover {
@@ -415,20 +418,93 @@ main {
     cursor: pointer;
 }
 
-.task-text {
+.task-content {
     flex: 1;
+    margin: 0 0.5rem;
     cursor: pointer;
-    padding: 0.25rem;
-    border-radius: var(--border-radius);
+    transition: all 0.2s ease;
+    position: relative;
 }
 
-.task-text:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+.task-text-container {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    position: relative;
+}
+
+.task-text {
+    display: inline-block;
+    padding: 0.25rem 0;
+    width: 100%;
+}
+
+.task-edit-input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: calc(100% - 2.5rem);
+    padding: 0.25rem 0;
+    border: none;
+    background-color: transparent;
+    font-size: 1rem;
+    font-family: inherit;
+    display: none;
+    border-bottom: 1px solid var(--primary-color);
+}
+
+.task-voice-btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 2rem;
+    height: 2rem;
+    margin-left: 0.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    visibility: hidden;
+    position: relative;  /* Asegurar posicionamiento correcto */
+    z-index: 5;          /* Colocar por encima de otros elementos */
+}
+
+.task-item.editing .task-text {
+    visibility: hidden;
+}
+
+.task-item.editing .task-edit-input {
+    display: block;
+}
+
+.task-item.editing .task-voice-btn {
+    visibility: visible;
+    z-index: 5;     /* Asegurar que esté por encima de otros elementos */
+    position: relative;  /* Asegurar que el z-index funcione */
+}
+
+.task-voice-btn i {
+    pointer-events: none;  /* Evitar que el ícono interfiera con los clics en el botón */
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.task-edit-input:focus {
+    outline: none;
+}
+
+.task-item.completed {
+    background-color: rgba(40, 167, 69, 0.1);
+    border-left: 3px solid var(--success-color);
 }
 
 .task-item.completed .task-text {
-    text-decoration: line-through;
     color: var(--secondary-color);
+    text-decoration: line-through;
 }
 
 .task-actions {
@@ -667,6 +743,112 @@ header.drawer-left-mode {
 
 header.drawer-left-mode .header-actions {
     flex-direction: row-reverse;
+}
+
+/* Estilos para deslizamiento de tareas */
+.task-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    background-color: var(--light-gray);
+    border-radius: var(--border-radius);
+    transition: transform 0.3s ease, background-color 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+    touch-action: pan-y;
+}
+
+.task-item.long-press {
+    animation: pulse-highlight 1.5s 1;
+    background-color: rgba(74, 109, 167, 0.1);
+}
+
+@keyframes pulse-highlight {
+    0% {
+        background-color: var(--light-gray);
+    }
+    50% {
+        background-color: rgba(74, 109, 167, 0.2);
+    }
+    100% {
+        background-color: rgba(74, 109, 167, 0.1);
+    }
+}
+
+.task-item.slide-right {
+    transform: translateX(40px);
+    background-color: rgba(40, 167, 69, 0.1);
+}
+
+.task-item.slide-left {
+    transform: translateX(-40px);
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+.task-item::before,
+.task-item::after {
+    position: absolute;
+    top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.task-item::before {
+    content: "\f00c"; /* icono check */
+    left: 0;
+    width: 40px;
+    color: var(--success-color);
+}
+
+.task-item::after {
+    content: "\f1f8"; /* icono trash */
+    right: 0;
+    width: 40px;
+    color: var(--danger-color);
+}
+
+.task-item.slide-right::before {
+    opacity: 1;
+}
+
+.task-item.slide-left::after {
+    opacity: 1;
+}
+
+.task-item.swiping {
+    transition: none;
+}
+
+/* Swipe hint styles */
+.swipe-hint {
+    text-align: center;
+    margin-bottom: 1rem;
+    color: var(--secondary-color);
+    font-size: 0.8rem;
+    background-color: var(--light-gray);
+    padding: 0.75rem;
+    border-radius: var(--border-radius);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.swipe-hint i {
+    color: var(--primary-color);
+}
+
+.ml-auto {
+    margin-left: auto;
 }
 
 /* Responsive adjustments */

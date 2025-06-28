@@ -1194,4 +1194,58 @@ class UIController {
             this.activeDictationButton = null;
         }
     }
+
+    /**
+     * Auto-save task edit changes as the user types
+     * @param {HTMLInputElement} input - The input element being edited
+     */
+    async autoSaveTaskEdit(input) {
+        if (!this.currentList || !input) return;
+        
+        const taskItem = input.closest('.task-item');
+        if (!taskItem) return;
+        
+        const index = parseInt(taskItem.dataset.index, 10);
+        if (index === undefined || !this.currentList.tasks[index]) return;
+        
+        const text = input.value.trim();
+        
+        if (text && text !== this.currentList.tasks[index].text) {
+            try {
+                // Capitalizar el texto
+                const capitalizedText = this.utils.capitalizeFirstLetter(text);
+                
+                // Actualizar el texto en la lista
+                this.currentList.tasks[index].text = capitalizedText;
+                
+                // Actualizar el texto visible
+                const taskText = taskItem.querySelector('.task-text');
+                if (taskText) {
+                    taskText.textContent = capitalizedText;
+                }
+                
+                // Guardar en la base de datos
+                await this.dbService.saveList(this.currentList);
+                
+            } catch (error) {
+                console.error('Error al auto-guardar la tarea:', error);
+                // No mostramos toast aquí para evitar spam durante la edición
+            }
+        }
+    }
+
+    /**
+     * Cancel inline edit and restore original value
+     * @param {HTMLElement} taskItem - The task item being edited
+     */
+    cancelInlineEdit(taskItem) {
+        if (!taskItem || taskItem !== this.editingElement) return;
+        
+        const input = taskItem.querySelector('.task-edit-input');
+        if (input && input.dataset.originalValue) {
+            input.value = input.dataset.originalValue;
+        }
+        
+        this.finishInlineEdit(taskItem);
+    }
 }

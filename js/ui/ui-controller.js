@@ -9,15 +9,18 @@ class UIController {
         this.activeDictationButton = null;
         this.activeListId = null;
         this.currentList = null;
-        this.isEditing = false;
+        this.isEditing = null;
         this.editingElement = null;
+        this.settings = this.dbService.getSettings();
 
         // DOM Elements
         this.elements = {
             drawer: document.getElementById('drawer'),
             openDrawer: document.getElementById('openDrawer'),
             closeDrawer: document.getElementById('closeDrawer'),
+            drawerCloseIcon: document.getElementById('drawerCloseIcon'),
             drawerOverlay: document.getElementById('drawerOverlay'),
+            drawerPosition: document.getElementById('drawerPosition'),
             createListBtn: document.getElementById('createListBtn'),
             addListBtn: document.getElementById('addListBtn'),
             listsPanel: document.getElementById('listsPanel'),
@@ -40,6 +43,19 @@ class UIController {
             toastMessage: document.getElementById('toastMessage')
         };
 
+        // Utility methods
+        this.utils = {
+            /**
+             * Capitaliza la primera letra de un texto
+             * @param {string} text - El texto a capitalizar
+             * @returns {string} - El texto con la primera letra en mayúscula
+             */
+            capitalizeFirstLetter: (text) => {
+                if (!text || typeof text !== 'string' || text.length === 0) return text;
+                return text.charAt(0).toUpperCase() + text.slice(1);
+            }
+        };
+
         this.init();
     }
 
@@ -47,6 +63,10 @@ class UIController {
      * Initialize the UI controller
      */
     init() {
+        // Cargar la configuración y aplicar la posición del drawer
+        this.settings = this.dbService.getSettings();
+        this.applyDrawerPosition();
+        
         this.bindEvents();
         this.loadLists();
 
@@ -59,6 +79,37 @@ class UIController {
             });
         }
     }
+    
+    /**
+     * Apply the drawer position from settings
+     */
+    applyDrawerPosition() {
+        const position = this.settings.drawerPosition;
+        
+        // Set the drawer class
+        this.elements.drawer.classList.remove('drawer-left', 'drawer-right');
+        this.elements.drawer.classList.add(`drawer-${position}`);
+        
+        // Set the dropdown value
+        this.elements.drawerPosition.value = position;
+        
+        // Update the close icon
+        if (position === 'left') {
+            this.elements.drawerCloseIcon.classList.remove('fa-arrow-right');
+            this.elements.drawerCloseIcon.classList.add('fa-arrow-left');
+        } else {
+            this.elements.drawerCloseIcon.classList.remove('fa-arrow-left');
+            this.elements.drawerCloseIcon.classList.add('fa-arrow-right');
+        }
+        
+        // Update the header layout based on drawer position
+        const header = document.querySelector('header');
+        if (position === 'left') {
+            header.classList.add('drawer-left-mode');
+        } else {
+            header.classList.remove('drawer-left-mode');
+        }
+    }
 
     /**
      * Bind event listeners to UI elements
@@ -68,6 +119,23 @@ class UIController {
         this.elements.openDrawer.addEventListener('click', () => this.openDrawer());
         this.elements.closeDrawer.addEventListener('click', () => this.closeDrawer());
         this.elements.drawerOverlay.addEventListener('click', () => this.closeDrawer());
+        
+        // Drawer position setting
+        this.elements.drawerPosition.addEventListener('change', (e) => {
+            const newPosition = e.target.value;
+            this.settings.drawerPosition = newPosition;
+            this.dbService.saveSettings(this.settings);
+            
+            // Cerrar y reabrir el drawer para aplicar los cambios
+            this.closeDrawer();
+            
+            // Aplicar cambios después de un breve retraso para que se vea la animación
+            setTimeout(() => {
+                this.applyDrawerPosition();
+                this.openDrawer();
+                this.showToast(`Menú movido a la ${newPosition === 'left' ? 'izquierda' : 'derecha'}`, 'success');
+            }, 300);
+        });
 
         // List creation and editing
         this.elements.createListBtn.addEventListener('click', () => {
@@ -178,8 +246,11 @@ class UIController {
             }
             listItem.dataset.id = list.id;
 
+            // Capitalizar el título
+            const capitalizedTitle = this.utils.capitalizeFirstLetter(list.title);
+            
             listItem.innerHTML = `
-                <div class="list-title">${list.title}</div>
+                <div class="list-title">${capitalizedTitle}</div>
             `;
 
             // Add event listener to load the list when clicked
@@ -232,9 +303,12 @@ class UIController {
     renderActiveList(list) {
         const activeListView = this.elements.activeListView;
         
+        // Capitalizar el título
+        const capitalizedTitle = this.utils.capitalizeFirstLetter(list.title);
+        
         activeListView.innerHTML = `
             <div class="list-header">
-                <h2 class="list-title" data-type="title">${list.title}</h2>
+                <h2 class="list-title" data-type="title">${capitalizedTitle}</h2>
                 <div class="list-actions">
                     <button class="btn secondary edit-active-list-btn">
                         <i class="fas fa-edit"></i> Editar
@@ -246,17 +320,21 @@ class UIController {
             </div>
             <ul class="task-list">
                 ${list.tasks.length === 0 ? '<div class="empty-state"><p>No hay tareas en esta lista</p></div>' : ''}
-                ${list.tasks.map((task, index) => `
-                    <li class="task-item ${task.completed ? 'completed' : ''}">
-                        <input type="checkbox" class="task-checkbox" data-index="${index}" ${task.completed ? 'checked' : ''}>
-                        <span class="task-text" data-type="task" data-index="${index}">${task.text}</span>
-                        <div class="task-actions">
-                            <button class="delete-task-btn" data-index="${index}">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    </li>
-                `).join('')}
+                ${list.tasks.map((task, index) => {
+                    // Capitalizar cada tarea
+                    const capitalizedTask = this.utils.capitalizeFirstLetter(task.text);
+                    return `
+                        <li class="task-item ${task.completed ? 'completed' : ''}">
+                            <input type="checkbox" class="task-checkbox" data-index="${index}" ${task.completed ? 'checked' : ''}>
+                            <span class="task-text" data-type="task" data-index="${index}">${capitalizedTask}</span>
+                            <div class="task-actions">
+                                <button class="delete-task-btn" data-index="${index}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </li>
+                    `;
+                }).join('')}
             </ul>
             <button class="add-task-btn" id="addNewTaskBtn">
                 <i class="fas fa-plus"></i> Añadir nueva tarea
@@ -375,15 +453,18 @@ class UIController {
             return;
         }
         
+        // Capitalizar el texto
+        const capitalizedText = this.utils.capitalizeFirstLetter(text);
+        
         try {
             if (this.editingType === 'title') {
-                this.currentList.title = text;
-                this.editingElement.textContent = text;
+                this.currentList.title = capitalizedText;
+                this.editingElement.textContent = capitalizedText;
             } else if (this.editingType === 'task') {
-                this.currentList.tasks[this.editingIndex].text = text;
-                this.editingElement.textContent = text;
+                this.currentList.tasks[this.editingIndex].text = capitalizedText;
+                this.editingElement.textContent = capitalizedText;
             } else if (this.editingType === 'new-task') {
-                this.currentList.tasks.push({ text, completed: false });
+                this.currentList.tasks.push({ text: capitalizedText, completed: false });
                 // Re-render the list to show the new task
                 this.renderActiveList(this.currentList);
             }
@@ -470,11 +551,12 @@ class UIController {
             if (!list) {
                 throw new Error('Lista no encontrada');
             }
-
+            
             this.isEditing = true;
             this.currentList = list;
             
             this.elements.modalTitle.textContent = 'Editar Lista';
+            // Usar el título ya capitalizado que tiene la lista
             this.elements.listTitle.value = list.title;
             
             // Populate task inputs
@@ -485,6 +567,7 @@ class UIController {
                 this.addTaskInput();
             } else {
                 list.tasks.forEach(task => {
+                    // Usar el texto de la tarea ya capitalizado
                     const taskInput = document.createElement('div');
                     taskInput.className = 'input-with-voice';
                     taskInput.innerHTML = `
@@ -517,11 +600,15 @@ class UIController {
             return;
         }
 
+        // Capitalizar el título
+        const capitalizedTitle = this.utils.capitalizeFirstLetter(title);
+
         const taskInputs = Array.from(this.elements.taskInputContainer.querySelectorAll('.task-input'));
         const tasks = taskInputs
             .map(input => input.value.trim())
             .filter(text => text !== '')
-            .map(text => ({ text, completed: false }));
+            // Capitalizar cada tarea
+            .map(text => ({ text: this.utils.capitalizeFirstLetter(text), completed: false }));
 
         if (tasks.length === 0) {
             this.showToast('La lista debe tener al menos una tarea', 'error');
@@ -530,7 +617,7 @@ class UIController {
 
         try {
             let list = {
-                title,
+                title: capitalizedTitle,
                 tasks
             };
 

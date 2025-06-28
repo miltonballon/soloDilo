@@ -14,7 +14,7 @@
     --border-radius: 0.25rem;
     --drawer-width: 280px;
     --header-height: 60px;
-    --transition-speed: 0.25s;
+    --transition-speed: 0.3s;
 }
 
 * {
@@ -42,20 +42,35 @@ body {
 .drawer {
     position: fixed;
     top: 0;
-    right: calc(-1 * var(--drawer-width));
     width: var(--drawer-width);
     height: 100%;
     background-color: white;
-    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
     z-index: 1000;
-    transition: transform var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
+    transition: transform var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Right drawer */
+.drawer.drawer-right {
+    right: 0;
+    transform: translateX(100%);
+    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.drawer.drawer-right.open {
     transform: translateX(0);
 }
 
-.drawer.open {
-    transform: translateX(calc(-1 * var(--drawer-width)));
+/* Left drawer */
+.drawer.drawer-left {
+    left: 0;
+    transform: translateX(-100%);
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.drawer.drawer-left.open {
+    transform: translateX(0);
 }
 
 .drawer-header {
@@ -76,6 +91,53 @@ body {
     padding: 1rem;
     border-top: 1px solid var(--border-color);
     margin-top: auto;
+}
+
+.settings-section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.settings-title {
+    font-size: 1rem;
+    color: var(--secondary-color);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.settings-title i {
+    font-size: 0.9rem;
+}
+
+.settings-option {
+    margin-bottom: 0.5rem;
+}
+
+.settings-option label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--secondary-color);
+}
+
+.settings-select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background-color: white;
+    font-size: 0.9rem;
+    transition: border-color 0.2s ease;
+}
+
+.settings-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(74, 109, 167, 0.2);
 }
 
 .overlay {
@@ -218,19 +280,20 @@ main {
 
 /* List Panel */
 .lists-panel {
-    flex: 1;
     overflow-y: auto;
-    padding: 1rem;
+    flex: 1;
 }
 
 .list-item {
-    display: flex;
-    padding: 0.75rem;
-    margin-bottom: 0.5rem;
-    border-radius: var(--border-radius);
-    background-color: var(--light-gray);
+    padding: 0.75rem 1rem;
     cursor: pointer;
     transition: background-color 0.2s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--dark-gray);
+    font-weight: 500;
 }
 
 .list-item:hover {
@@ -240,6 +303,8 @@ main {
 .list-item.active {
     background-color: var(--primary-color);
     color: white;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .list-title {
@@ -247,6 +312,8 @@ main {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    padding: 0.25rem 0;
+    font-size: 1rem;
 }
 
 .list-options button {
@@ -591,6 +658,15 @@ main {
 
 .toast.error {
     background-color: var(--danger-color);
+}
+
+/* Header adjustments based on drawer position */
+header.drawer-left-mode {
+    flex-direction: row-reverse;
+}
+
+header.drawer-left-mode .header-actions {
+    flex-direction: row-reverse;
 }
 
 /* Responsive adjustments */

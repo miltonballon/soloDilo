@@ -160,4 +160,29 @@ class DBService {
         const id = localStorage.getItem('activeListId');
         return id ? parseInt(id, 10) : null;
     }
+    
+    /**
+     * Save app settings to local storage
+     * @param {Object} settings - The settings object to save
+     */
+    saveSettings(settings) {
+        localStorage.setItem('appSettings', JSON.stringify(settings));
+    }
+    
+    /**
+     * Get app settings from local storage
+     * @returns {Object} The app settings object
+     */
+    getSettings() {
+        const settingsJson = localStorage.getItem('appSettings');
+        if (!settingsJson) {
+            // Default settings
+            const defaultSettings = {
+                drawerPosition: 'right' // 'right' or 'left'
+            };
+            this.saveSettings(defaultSettings);
+            return defaultSettings;
+        }
+        return JSON.parse(settingsJson);
+    }
 }

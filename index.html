@@ -13,7 +13,7 @@
             <div class="drawer-header">
                 <h2>Mis Listas</h2>
                 <button id="closeDrawer" class="icon-btn drawer-close-btn">
-                    <i class="fas fa-arrow-right"></i>
+                    <i id="drawerCloseIcon" class="fas fa-arrow-right"></i>
                 </button>
             </div>
             <div id="listsPanel" class="lists-panel">
@@ -23,6 +23,16 @@
                 <button id="createListBtn" class="btn primary full-width">
                     <i class="fas fa-plus"></i> Nueva Lista
                 </button>
+                <div class="settings-section">
+                    <h3 class="settings-title"><i class="fas fa-cog"></i> Configuración</h3>
+                    <div class="settings-option">
+                        <label for="drawerPosition">Posición del Menú:</label>
+                        <select id="drawerPosition" class="settings-select">
+                            <option value="right">Derecha</option>
+                            <option value="left">Izquierda</option>
+                        </select>
+                    </div>
+                </div>
             </div>
         </div>
         

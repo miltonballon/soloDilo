@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SoloDilo - Listas de Tareas</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>SoloDilo</h1>
+            <p>Crea y gestiona tus listas de tareas</p>
+        </header>
+
+        <main>
+            <div class="lists-container">
+                <div class="lists-header">
+                    <h2>Mis Listas</h2>
+                    <button id="createListBtn" class="btn primary">
+                        <i class="fas fa-plus"></i> Nueva Lista
+                    </button>
+                </div>
+                <div id="listsPanel" class="lists-panel">
+                    <!-- Las listas se mostrarán aquí -->
+                </div>
+            </div>
+
+            <div class="active-list-container">
+                <div id="activeListView" class="active-list-view">
+                    <!-- Aquí se mostrará la lista activa -->
+                    <div class="empty-state">
+                        <i class="fas fa-clipboard-list fa-4x"></i>
+                        <p>Selecciona una lista o crea una nueva para comenzar</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Modal para crear/editar lista -->
+        <div id="listModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modalTitle">Nueva Lista</h3>
+                    <button id="closeModal" class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="listTitle">Título</label>
+                        <div class="input-with-voice">
+                            <input type="text" id="listTitle" placeholder="Título de la lista">
+                            <button id="dictateTitle" class="voice-btn" title="Dictar título">
+                                <i class="fas fa-microphone"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Tareas</label>
+                        <div id="taskInputContainer">
+                            <div class="input-with-voice">
+                                <input type="text" class="task-input" placeholder="Nueva tarea">
+                                <button class="voice-btn dictate-task" title="Dictar tarea">
+                                    <i class="fas fa-microphone"></i>
+                                </button>
+                                <button class="remove-task-btn" title="Eliminar tarea">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <button id="addTaskBtn" class="btn secondary">
+                            <i class="fas fa-plus"></i> Añadir Tarea
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="saveListBtn" class="btn primary">Guardar</button>
+                    <button id="cancelBtn" class="btn">Cancelar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast para notificaciones -->
+        <div id="toast" class="toast">
+            <span id="toastMessage"></span>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/services/db-service.js"></script>
+    <script src="js/services/speech-service.js"></script>
+    <script src="js/ui/ui-controller.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

@@ -348,9 +348,14 @@ class UIController {
                     `;
                 }).join('')}
             </ul>
-            <button class="add-task-btn" id="addNewTaskBtn">
-                <i class="fas fa-plus"></i> Añadir nueva tarea
-            </button>
+            <div class="add-task-section">
+                <button class="add-task-btn" id="addNewTaskBtn">
+                    <i class="fas fa-plus"></i> Añadir nueva tarea
+                </button>
+                <button class="voice-btn add-task-voice-btn" id="addTaskVoiceBtn" title="Dictar nueva tarea">
+                    <i class="fas fa-microphone"></i>
+                </button>
+            </div>
         `;
 
         // Add event listeners
@@ -443,6 +448,11 @@ class UIController {
         activeListView.querySelector('#addNewTaskBtn').addEventListener('click', () => {
             this.addNewTask();
         });
+
+        // Add voice dictation for new task
+        activeListView.querySelector('#addTaskVoiceBtn').addEventListener('click', () => {
+            this.addNewTaskWithVoice();
+        });
     }
 
     /**
@@ -465,6 +475,39 @@ class UIController {
         const newTaskItem = taskItems[taskItems.length - 1];
         if (newTaskItem) {
             this.startInlineEdit(newTaskItem);
+        }
+    }
+
+    /**
+     * Add a new task and start voice dictation immediately
+     */
+    async addNewTaskWithVoice() {
+        if (!this.currentList) return;
+        
+        // Añadir una tarea vacía a la lista actual
+        this.currentList.tasks.push({ text: "Nueva tarea", completed: false });
+        
+        // Re-renderizar la lista
+        this.renderActiveList(this.currentList);
+        
+        // Guardar en la base de datos
+        await this.dbService.saveList(this.currentList);
+        
+        // Activar edición en la nueva tarea e iniciar dictado
+        const taskItems = document.querySelectorAll('.task-item');
+        const newTaskItem = taskItems[taskItems.length - 1];
+        if (newTaskItem) {
+            // Iniciar edición inline
+            this.startInlineEdit(newTaskItem);
+            
+            // Iniciar dictado automáticamente
+            setTimeout(() => {
+                const input = newTaskItem.querySelector('.task-edit-input');
+                const voiceBtn = newTaskItem.querySelector('.task-voice-btn');
+                if (input && voiceBtn) {
+                    this.startDictation(voiceBtn, input);
+                }
+            }, 100); // Pequeño delay para asegurar que el DOM esté listo
         }
     }
 

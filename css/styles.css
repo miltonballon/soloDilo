@@ -318,6 +318,10 @@ main {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
+.list-item.active .list-title {
+    color: white;
+}
+
 .list-title {
     flex: 1;
     padding: 0.25rem 0;
@@ -386,7 +390,7 @@ main {
     gap: 1rem;
 }
 
-.list-title {
+.list-header .list-title {
     font-size: 1.5rem;
     font-weight: 600;
     color: var(--primary-color);
@@ -400,7 +404,7 @@ main {
     max-width: 100%;
 }
 
-.list-title:hover {
+.list-header .list-title:hover {
     background-color: var(--light-gray);
 }
 

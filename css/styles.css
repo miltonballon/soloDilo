@@ -273,8 +273,20 @@ main {
     background-color: #bd2130;
 }
 
-.btn.full-width {
-    width: 100%;
+/* Delete button with icon only */
+.delete-active-list-btn {
+    min-width: 2.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.delete-active-list-btn i {
+    font-size: 1rem;
 }
 
 /* List Panel */
@@ -308,11 +320,11 @@ main {
 
 .list-title {
     flex: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     padding: 0.25rem 0;
     font-size: 1rem;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
 }
 
 .list-options button {
@@ -368,8 +380,10 @@ main {
 .list-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
 .list-title {
@@ -380,6 +394,10 @@ main {
     border-radius: var(--border-radius);
     cursor: pointer;
     display: inline-block;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    max-width: 100%;
 }
 
 .list-title:hover {
@@ -394,10 +412,11 @@ main {
 /* List title inline editing styles */
 .list-title-container {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     position: relative;
     flex: 1;
     margin-right: 1rem;
+    min-width: 0; /* Allow flex item to shrink */
 }
 
 .list-title-text-container {

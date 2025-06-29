@@ -317,7 +317,7 @@ class UIController {
                 </div>
                 <div class="list-actions">
                     <button class="btn danger delete-active-list-btn">
-                        <i class="fas fa-trash"></i> Eliminar
+                        <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </div>

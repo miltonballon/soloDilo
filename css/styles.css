@@ -400,6 +400,13 @@ main {
     margin-right: 1rem;
 }
 
+.list-title-text-container {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    position: relative;
+}
+
 .list-title-edit-input {
     position: absolute;
     top: 0;
@@ -434,15 +441,15 @@ main {
     z-index: 5;
 }
 
-.list-title-container.editing .list-title {
+.list-title-text-container.editing .list-title {
     visibility: hidden;
 }
 
-.list-title-container.editing .list-title-edit-input {
+.list-title-text-container.editing .list-title-edit-input {
     display: block;
 }
 
-.list-title-container.editing .list-title-voice-btn {
+.list-title-text-container.editing .list-title-voice-btn {
     visibility: visible;
 }
 

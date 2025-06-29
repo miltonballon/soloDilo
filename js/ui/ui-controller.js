@@ -188,6 +188,25 @@ class UIController {
             }
         });
         
+        // Listener global para el botón de dictado del título
+        document.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.list-title-voice-btn')) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const button = e.target.closest('.list-title-voice-btn');
+                const titleTextContainer = button.closest('.list-title-text-container');
+                const input = titleTextContainer.querySelector('.list-title-edit-input');
+                
+                // Si no está en modo edición, activarlo primero
+                if (!titleTextContainer.classList.contains('editing')) {
+                    this.startListTitleInlineEdit(titleTextContainer);
+                }
+                
+                this.startDictation(button, input);
+            }
+        });
+        
         // Listen for escape key to close popups
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
@@ -316,11 +335,13 @@ class UIController {
         activeListView.innerHTML = `
             <div class="list-header">
                 <div class="list-title-container">
-                    <h2 class="list-title" data-type="title">${capitalizedTitle}</h2>
-                    <input type="text" class="list-title-edit-input" value="${capitalizedTitle}">
-                    <button class="voice-btn list-title-voice-btn" title="Dictar título">
-                        <i class="fas fa-microphone"></i>
-                    </button>
+                    <div class="list-title-text-container">
+                        <h2 class="list-title" data-type="title">${capitalizedTitle}</h2>
+                        <input type="text" class="list-title-edit-input" value="${capitalizedTitle}">
+                        <button class="voice-btn list-title-voice-btn" title="Dictar título">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="list-actions">
                     <button class="btn danger delete-active-list-btn">
@@ -361,10 +382,10 @@ class UIController {
         `;
 
         // Add event listeners
-        const listTitleContainer = activeListView.querySelector('.list-title-container');
-        listTitleContainer.addEventListener('click', (e) => {
+        const listTitleTextContainer = activeListView.querySelector('.list-title-text-container');
+        listTitleTextContainer.addEventListener('click', (e) => {
             if (e.target.classList.contains('list-title')) {
-                this.startListTitleInlineEdit(listTitleContainer);
+                this.startListTitleInlineEdit(listTitleTextContainer);
             }
         });
 
@@ -380,28 +401,25 @@ class UIController {
 
         listTitleInput.addEventListener('blur', (e) => {
             setTimeout(() => {
-                if (!this.activeDictationButton || !this.activeDictationButton.closest('.list-title-voice-btn')) {
-                    this.finishListTitleInlineEdit(listTitleContainer);
+                const titleTextContainer = e.target.closest('.list-title-text-container');
+                const activeElement = document.activeElement;
+                
+                // Solo finalizar la edición si el foco no está en el botón de micrófono
+                // y no hay dictado activo
+                if (!this.activeDictationButton && 
+                    (!activeElement || !activeElement.closest('.list-title-text-container'))) {
+                    this.finishListTitleInlineEdit(titleTextContainer);
                 }
-            }, 100);
+            }, 150);
         });
 
         listTitleInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
-                this.finishListTitleInlineEdit(listTitleContainer);
+                this.finishListTitleInlineEdit(listTitleTextContainer);
             } else if (e.key === 'Escape') {
-                this.cancelListTitleInlineEdit(listTitleContainer);
+                this.cancelListTitleInlineEdit(listTitleTextContainer);
             }
         });
-
-        // Add event listener for list title voice button
-        const listTitleVoiceBtn = activeListView.querySelector('.list-title-voice-btn');
-        if (listTitleVoiceBtn) {
-            listTitleVoiceBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.startDictation(listTitleVoiceBtn, listTitleInput);
-            });
-        }
 
         // Add event listeners for checkboxes
         activeListView.querySelectorAll('.task-checkbox').forEach(checkbox => {

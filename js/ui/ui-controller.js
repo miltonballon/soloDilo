@@ -9,7 +9,6 @@ class UIController {
         this.activeDictationButton = null;
         this.activeListId = null;
         this.currentList = null;
-        this.isEditing = null;
         this.editingElement = null;
         this.settings = this.dbService.getSettings();
 
@@ -25,13 +24,6 @@ class UIController {
             addListBtn: document.getElementById('addListBtn'),
             listsPanel: document.getElementById('listsPanel'),
             activeListView: document.getElementById('activeListView'),
-            listModal: document.getElementById('listModal'),
-            modalTitle: document.getElementById('modalTitle'),
-            closeModal: document.getElementById('closeModal'),
-            listTitle: document.getElementById('listTitle'),
-            dictateTitle: document.getElementById('dictateTitle'),
-            saveListBtn: document.getElementById('saveListBtn'),
-            cancelBtn: document.getElementById('cancelBtn'),
             editTextPopup: document.getElementById('editTextPopup'),
             editTextInput: document.getElementById('editTextInput'),
             dictateEditText: document.getElementById('dictateEditText'),
@@ -137,16 +129,12 @@ class UIController {
 
         // List creation and editing
         this.elements.createListBtn.addEventListener('click', () => {
-            this.openCreateListModal();
+            this.createNewListDirectly();
             this.closeDrawer();
         });
-        this.elements.addListBtn.addEventListener('click', () => this.openCreateListModal());
-        this.elements.closeModal.addEventListener('click', () => this.closeModal());
-        this.elements.cancelBtn.addEventListener('click', () => this.closeModal());
-        this.elements.saveListBtn.addEventListener('click', () => this.saveList());
-
-        // Voice dictation
-        this.elements.dictateTitle.addEventListener('click', (e) => this.startDictation(e.target, this.elements.listTitle));
+        this.elements.addListBtn.addEventListener('click', () => {
+            this.createNewListDirectly();
+        });
         
         // Edit text popup events
         this.elements.dictateEditText.addEventListener('click', (e) => {
@@ -162,13 +150,6 @@ class UIController {
                 this.saveInlineEdit();
             } else if (e.key === 'Escape') {
                 this.closeInlineEdit();
-            }
-        });
-        
-        // Close modal when clicking outside
-        window.addEventListener('click', (e) => {
-            if (e.target === this.elements.listModal) {
-                this.closeModal();
             }
         });
         
@@ -204,15 +185,6 @@ class UIController {
                 }
                 
                 this.startDictation(button, input);
-            }
-        });
-        
-        // Listen for escape key to close popups
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                if (this.elements.listModal.classList.contains('show')) {
-                    this.closeModal();
-                }
             }
         });
     }
@@ -681,86 +653,6 @@ class UIController {
     }
 
     /**
-     * Open the create list modal
-     */
-    openCreateListModal() {
-        this.isEditing = false;
-        this.elements.modalTitle.textContent = 'Nueva Lista';
-        this.elements.listTitle.value = '';
-        
-        this.showModal();
-    }
-
-    /**
-     * Open the edit list modal - simplified to only edit title
-     * @param {number} id - The ID of the list to edit
-     */
-    async editList(id) {
-        try {
-            const list = await this.dbService.getListById(id);
-            if (!list) {
-                throw new Error('Lista no encontrada');
-            }
-            
-            this.isEditing = true;
-            this.currentList = list;
-            
-            this.elements.modalTitle.textContent = 'Editar Lista';
-            // Usar el título ya capitalizado que tiene la lista
-            this.elements.listTitle.value = list.title;
-            
-            this.showModal();
-        } catch (error) {
-            console.error('Error loading list for editing:', error);
-            this.showToast('Error al cargar la lista para editar', 'error');
-        }
-    }
-
-    /**
-     * Save the current list (create new or update existing)
-     */
-    async saveList() {
-        const title = this.elements.listTitle.value.trim();
-        if (!title) {
-            this.showToast('El título de la lista no puede estar vacío', 'error');
-            return;
-        }
-
-        // Capitalizar el título
-        const capitalizedTitle = this.utils.capitalizeFirstLetter(title);
-
-        try {
-            let list = {
-                title: capitalizedTitle,
-                tasks: [] // Crear lista vacía
-            };
-
-            if (this.isEditing && this.currentList) {
-                list.id = this.currentList.id;
-                // Si estamos editando, mantener las tareas existentes
-                list.tasks = this.currentList.tasks || [];
-            }
-
-            const id = await this.dbService.saveList(list);
-            
-            if (!this.isEditing) {
-                // Si es una nueva lista, abrirla automáticamente
-                this.activeListId = id;
-                this.dbService.setActiveList(id);
-                // Cargar y mostrar la nueva lista
-                await this.loadActiveList(id);
-            }
-            
-            this.showToast(this.isEditing ? 'Lista actualizada correctamente' : 'Lista creada correctamente', 'success');
-            this.closeModal();
-            this.loadLists();
-        } catch (error) {
-            console.error('Error saving list:', error);
-            this.showToast('Error al guardar la lista', 'error');
-        }
-    }
-
-    /**
      * Delete a list
      * @param {number} id - The ID of the list to delete
      */
@@ -789,6 +681,45 @@ class UIController {
         } catch (error) {
             console.error('Error deleting list:', error);
             this.showToast('Error al eliminar la lista', 'error');
+        }
+    }
+
+    /**
+     * Create a new list directly with default title and start editing
+     */
+    async createNewListDirectly() {
+        try {
+            const defaultTitle = "Nueva Lista";
+            
+            let list = {
+                title: defaultTitle,
+                tasks: [] // Crear lista vacía
+            };
+
+            const id = await this.dbService.saveList(list);
+            
+            // Abrir la nueva lista automáticamente
+            this.activeListId = id;
+            this.dbService.setActiveList(id);
+            
+            // Cargar y mostrar la nueva lista
+            await this.loadActiveList(id);
+            
+            // Actualizar el panel de listas
+            this.loadLists();
+            
+            // Activar automáticamente el modo de edición del título
+            setTimeout(() => {
+                const titleTextContainer = document.querySelector('.list-title-text-container');
+                if (titleTextContainer) {
+                    this.startListTitleInlineEdit(titleTextContainer);
+                }
+            }, 100); // Pequeño delay para asegurar que el DOM esté renderizado
+            
+            this.showToast('Nueva lista creada', 'success');
+        } catch (error) {
+            console.error('Error creating new list:', error);
+            this.showToast('Error al crear la nueva lista', 'error');
         }
     }
 
@@ -865,27 +796,6 @@ class UIController {
                 this.showToast('Error en el reconocimiento de voz: ' + error, 'error');
             }
         });
-    }
-
-    /**
-     * Show the list modal
-     */
-    showModal() {
-        this.elements.listModal.classList.add('show');
-    }
-
-    /**
-     * Close the list modal
-     */
-    closeModal() {
-        this.elements.listModal.classList.remove('show');
-        
-        // Stop dictation if active
-        if (this.activeDictationButton) {
-            this.activeDictationButton.classList.remove('active');
-            this.speechService.stopListening();
-            this.activeDictationButton = null;
-        }
     }
 
     /**

@@ -11,5 +11,5 @@ document.addEventListener('DOMContentLoaded', () => {
     const uiController = new UIController(dbService, speechService);
     
     // Display welcome message
-    console.log('SoloDilo application initialized successfully');
+    console.log('Solo Dilo application initialized successfully');
 });

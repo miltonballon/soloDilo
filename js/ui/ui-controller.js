@@ -329,24 +329,31 @@ class UIController {
             </div>
             <ul class="task-list">
                 ${list.tasks.length === 0 ? '<div class="empty-state"><p>No hay tareas en esta lista</p></div>' : ''}
-                ${list.tasks.map((task, index) => {
-                    // Capitalizar cada tarea
-                    const capitalizedTask = this.utils.capitalizeFirstLetter(task.text);
-                    return `
-                        <li class="task-item ${task.completed ? 'completed' : ''}" data-index="${index}">
-                            <input type="checkbox" class="task-checkbox" data-index="${index}" ${task.completed ? 'checked' : ''}>
-                            <div class="task-content" data-index="${index}">
-                                <div class="task-text-container">
-                                    <span class="task-text" data-type="task" data-index="${index}">${capitalizedTask}</span>
-                                    <input type="text" class="task-edit-input" value="${capitalizedTask}" data-index="${index}">
-                                    <button class="voice-btn task-voice-btn" data-index="${index}" title="Dictar tarea">
-                                        <i class="fas fa-microphone"></i>
-                                    </button>
+                ${list.tasks
+                    .map((task, index) => ({ ...task, originalIndex: index }))
+                    .sort((a, b) => {
+                        // Primero las no completadas (false), luego las completadas (true)
+                        if (a.completed === b.completed) return 0;
+                        return a.completed ? 1 : -1;
+                    })
+                    .map((task) => {
+                        // Capitalizar cada tarea
+                        const capitalizedTask = this.utils.capitalizeFirstLetter(task.text);
+                        return `
+                            <li class="task-item ${task.completed ? 'completed' : ''}" data-index="${task.originalIndex}">
+                                <input type="checkbox" class="task-checkbox" data-index="${task.originalIndex}" ${task.completed ? 'checked' : ''}>
+                                <div class="task-content" data-index="${task.originalIndex}">
+                                    <div class="task-text-container">
+                                        <span class="task-text" data-type="task" data-index="${task.originalIndex}">${capitalizedTask}</span>
+                                        <input type="text" class="task-edit-input" value="${capitalizedTask}" data-index="${task.originalIndex}">
+                                        <button class="voice-btn task-voice-btn" data-index="${task.originalIndex}" title="Dictar tarea">
+                                            <i class="fas fa-microphone"></i>
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        </li>
-                    `;
-                }).join('')}
+                            </li>
+                        `;
+                    }).join('')}
             </ul>
             <div class="add-task-section">
                 <button class="add-task-btn" id="addNewTaskBtn">
